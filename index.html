@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unity WebGL - Panorama with Hotspot Sidebar</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            overflow: hidden;
+        }
+
+        #unity-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #unity-canvas {
+            width: 100%;
+            height: 100%;
+            background: #231F20;
+        }
+
+        #loading-cover {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        #loading-cover.hidden {
+            display: none;
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #hotspot-sidebar {
+            position: absolute;
+            top: 0;
+            left: -340px;
+            width: 320px;
+            height: 100vh;
+            background: rgba(30, 30, 40, 0.95);
+            backdrop-filter: blur(10px);
+            color: white;
+            overflow-y: auto;
+            transition: left 0.3s ease;
+            z-index: 100;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #hotspot-sidebar.open {
+            left: 0;
+        }
+
+        #sidebar-toggle {
+            position: absolute;
+            top: 140px;
+            left: 20px;
+            background: rgba(52, 152, 219, 0.9);
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 50;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #sidebar-toggle:hover {
+            background: rgba(52, 152, 219, 1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        #sidebar-toggle.hidden {
+            display: none;
+        }
+
+        .sidebar-header {
+            padding: 25px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header h2 {
+            font-size: 20px;
+            margin-bottom: 5px;
+            padding-right: 30px;
+        }
+
+        .sidebar-header p {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        #sidebar-close {
+            position: absolute;
+            top: 20px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        #sidebar-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(90deg);
+        }
+
+        .hotspot-list {
+            padding: 15px 10px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .hotspot-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .hotspot-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .hotspot-list::-webkit-scrollbar-thumb {
+            background: rgba(52, 152, 219, 0.5);
+            border-radius: 3px;
+        }
+
+        .hotspot-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(52, 152, 219, 0.7);
+        }
+
+        .hotspot-item {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .hotspot-item:hover {
+            background: rgba(52, 152, 219, 0.2);
+            border-color: rgba(52, 152, 219, 0.5);
+            transform: translateX(5px);
+        }
+
+        .hotspot-item.active {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.4) 0%, rgba(118, 75, 162, 0.4) 100%);
+            border-color: rgba(102, 126, 234, 0.8);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .hotspot-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-right: 12px;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hotspot-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .hotspot-icon {
+            font-size: 28px;
+        }
+
+        .hotspot-content {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .hotspot-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #ffffff;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .hotspot-description {
+            font-size: 13px;
+            opacity: 0.7;
+            line-height: 1.4;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .hotspot-item.active .hotspot-description {
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            #hotspot-sidebar {
+                width: 280px;
+                left: -280px;
+            }
+            
+            #sidebar-toggle {
+                top: 120px;
+                left: 10px;
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="unity-container">
+    <canvas id="unity-canvas"></canvas>
+    
+    <div id="loading-cover">
+        <div class="loader"></div>
+    </div>
+
+    <button id="sidebar-toggle">📍 Hotspots</button>
+
+    <div id="hotspot-sidebar">
+        <div class="sidebar-header">
+            <h2>Navigation</h2>
+            <p>Select a location to explore</p>
+            <button id="sidebar-close">✕</button>
+        </div>
+        <div class="hotspot-list" id="hotspot-list">
+            <p style="padding: 20px; opacity: 0.5; text-align: center;">Loading hotspots...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let unityInstance = null;
+    let currentLocationId = null;
+
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebarClose = document.getElementById('sidebar-close');
+    const sidebar = document.getElementById('hotspot-sidebar');
+    const hotspotList = document.getElementById('hotspot-list');
+
+    function toggleSidebar() {
+        sidebar.classList.toggle('open');
+        if (sidebar.classList.contains('open')) {
+            sidebarToggle.classList.add('hidden');
+        } else {
+            sidebarToggle.classList.remove('hidden');
+        }
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove('open');
+        sidebarToggle.classList.remove('hidden');
+    }
+
+    sidebarToggle.addEventListener('click', toggleSidebar);
+    sidebarClose.addEventListener('click', closeSidebar);
+
+    window.unityHotspotData = function(data) {
+        console.log('📍 Received hotspot data:', data);
+        
+        if (!data || !data.hotspots) {
+            console.error('Invalid hotspot data');
+            hotspotList.innerHTML = '<p style="padding: 20px; opacity: 0.5; text-align: center;">No hotspots available</p>';
+            return;
+        }
+
+        hotspotList.innerHTML = '';
+
+        data.hotspots.forEach((hotspot, index) => {
+            if (!hotspot || !hotspot.id) return;
+
+            const item = document.createElement('div');
+            item.className = 'hotspot-item';
+            item.dataset.id = hotspot.id;
+
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'hotspot-image';
+
+            if (hotspot.imageBase64) {
+                const img = document.createElement('img');
+                img.src = 'data:image/png;base64,' + hotspot.imageBase64;
+                img.alt = hotspot.name || hotspot.id;
+                img.onerror = function() {
+                    imageContainer.innerHTML = '<span class="hotspot-icon">📍</span>';
+                };
+                imageContainer.appendChild(img);
+            } else {
+                imageContainer.innerHTML = '<span class="hotspot-icon">📍</span>';
+            }
+
+            const content = document.createElement('div');
+            content.className = 'hotspot-content';
+
+            const name = document.createElement('div');
+            name.className = 'hotspot-name';
+            name.textContent = hotspot.name || `Location ${index + 1}`;
+
+            content.appendChild(name);
+
+            if (hotspot.description) {
+                const desc = document.createElement('div');
+                desc.className = 'hotspot-description';
+                desc.textContent = hotspot.description;
+                content.appendChild(desc);
+            }
+
+            item.appendChild(imageContainer);
+            item.appendChild(content);
+
+            item.addEventListener('click', () => {
+                navigateToHotspot(hotspot.id);
+            });
+
+            hotspotList.appendChild(item);
+        });
+    };
+
+    window.unityLocationChanged = function(locationId) {
+        console.log('📍 Location changed to:', locationId);
+        currentLocationId = locationId;
+
+        document.querySelectorAll('.hotspot-item').forEach(item => {
+            if (item.dataset.id === locationId) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+    };
+
+    function navigateToHotspot(hotspotId) {
+        console.log('🎯 Navigating to hotspot:', hotspotId);
+        
+        if (unityInstance) {
+            unityInstance.SendMessage('WebGLCommunication', 'NavigateToHotspot', hotspotId);
+        } else {
+            console.error('Unity instance not ready');
+        }
+    }
+
+    const buildUrl = "Build";
+    const loaderUrl = buildUrl + "/Virtual tour.loader.js";
+    const config = {
+        dataUrl: buildUrl + "/Virtual tour.data",
+        frameworkUrl: buildUrl + "/Virtual tour.framework.js",
+        codeUrl: buildUrl + "/Virtual tour.wasm",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "DefaultCompany",
+        productName: "Archive",
+        productVersion: "1.0",
+    };
+
+    const canvas = document.querySelector("#unity-canvas");
+    const loadingCover = document.querySelector("#loading-cover");
+
+    const script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+            console.log('Loading progress:', progress);
+        }).then((instance) => {
+            unityInstance = instance;
+            loadingCover.classList.add("hidden");
+            console.log('✅ Unity instance loaded successfully');
+
+            if (window.pendingHotspotData) {
+                window.unityHotspotData(window.pendingHotspotData);
+                delete window.pendingHotspotData;
+            }
+        }).catch((message) => {
+            console.error('Failed to load Unity:', message);
+            alert('Failed to load Unity WebGL build: ' + message);
+        });
+    };
+    document.body.appendChild(script);
+</script>
+</body>
+</html>
