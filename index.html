@@ -4,451 +4,1291 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <title>Unity Web Player | Archive</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>VNR VJIET – Virtual Campus Tour</title>
   <link rel="shortcut icon" href="TemplateData/favicon.ico">
-  <link rel="stylesheet" href="TemplateData/style.css">
+
+  <!-- Google Fonts: Poppins -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
-    /* ── Chatbot Overlay Styles ── */
+    /* ════════════════════════════════════════════════════════════
+       CSS CUSTOM PROPERTIES  — edit these to re-theme the tour
+       ════════════════════════════════════════════════════════════ */
+    :root {
+      --accent:      #f0a500;
+      --accent-glow: rgba(240,165,0,.35);
+      --bg:          #0a0a0a;
+      --surface:     rgba(255,255,255,.08);
+      --surface-hov: rgba(255,255,255,.14);
+      --glass-bg:    rgba(10,10,10,.72);
+      --glass-brd:   rgba(255,255,255,.12);
+      --text:        #f1f5f9;
+      --text-muted:  rgba(255,255,255,.55);
+      --radius:      12px;
+      --transition:  0.3s ease;
+      --nav-h:       56px;
+      --bottom-h:    110px;
+      --font:        'Poppins', sans-serif;
+    }
+
+    /* ─── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: var(--font);
+      color: var(--text);
+    }
+
+    /* ─── Unity Canvas Container ────────────────────────────── */
+    #unity-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+    #unity-canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      background: #1a1a2e;
+    }
+
+    /* ─── Unity Warning Banner ──────────────────────────────── */
+    #unity-warning {
+      position: fixed;
+      left: 50%; top: 5%;
+      transform: translateX(-50%);
+      z-index: 9990;
+      background: rgba(220,38,38,.9);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      display: none;
+      backdrop-filter: blur(8px);
+    }
+
+    /* ════════════════════════════════════════════════════════
+       LOADING SCREEN
+       ════════════════════════════════════════════════════════ */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      background: rgba(0,0,0,.85);
+      transition: opacity .6s ease, visibility .6s ease;
+    }
+    #loading-bg {
+      position: absolute;
+      inset: 0;
+      background: url('TemplateData/unity-logo-dark.png') center/cover no-repeat;
+      filter: blur(12px) brightness(.3);
+      z-index: 0;
+    }
+    #loading-screen > *:not(#loading-bg) { position: relative; z-index: 1; }
+    #loading-screen.fade-out {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* Logo */
+    #tour-logo {
+      width: 130px; height: 130px;
+      object-fit: contain;
+      border-radius: 50%;
+      border: 3px solid var(--accent);
+      box-shadow: 0 0 32px var(--accent-glow);
+      background: rgba(255,255,255,.05);
+      padding: 12px;
+    }
+    /* College name */
+    .loading-college-name {
+      font-size: clamp(16px, 2.5vw, 22px);
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--accent);
+      text-align: center;
+    }
+    /* Tagline */
+    .loading-tagline {
+      font-size: clamp(11px, 1.7vw, 14px);
+      font-weight: 300;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    /* Progress track */
+    .progress-track {
+      width: min(380px, 80vw);
+      height: 6px;
+      background: rgba(255,255,255,.12);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), #ffcc55);
+      border-radius: 99px;
+      transition: width .25s ease;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+    /* Spinner */
+    .spinner {
+      width: 42px; height: 42px;
+      border: 3px solid rgba(255,255,255,.12);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Percentage */
+    .progress-text {
+      font-size: 13px;
+      color: var(--text-muted);
+      letter-spacing: .5px;
+    }
+    .loading-dots::after {
+      content: '';
+      animation: dots 1.2s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0%   { content: '';    }
+      25%  { content: '.';   }
+      50%  { content: '..';  }
+      75%  { content: '...'; }
+    }
+
+    /* ════════════════════════════════════════════════════════
+       TOP NAVIGATION BAR
+       ════════════════════════════════════════════════════════ */
+    #top-nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--nav-h);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 12px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--glass-brd);
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .nav-brand img {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid var(--accent);
+    }
+    .nav-brand-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: .3px;
+      white-space: nowrap;
+    }
+    .nav-title {
+      flex: 1;
+      text-align: center;
+      font-size: clamp(11px, 2vw, 14px);
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: var(--accent);
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--glass-brd);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 17px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background var(--transition), border-color var(--transition), transform .15s;
+    }
+    .nav-btn:hover {
+      background: var(--surface-hov);
+      border-color: var(--accent);
+      transform: scale(1.08);
+    }
+    .nav-btn.active {
+      background: rgba(240,165,0,.18);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ════════════════════════════════════════════════════════
+       BOTTOM LOCATION PANEL
+       ════════════════════════════════════════════════════════ */
+    #bottom-panel {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: var(--bottom-h);
+      z-index: 500;
+      background: var(--glass-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-top: 1px solid var(--glass-brd);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+    }
+    .location-scroll {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 8px 0;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .location-scroll::-webkit-scrollbar { display: none; }
+    .loc-card {
+      flex-shrink: 0;
+      scroll-snap-align: start;
+      min-width: 88px;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--glass-brd);
+      background: var(--surface);
+      cursor: pointer;
+      text-align: center;
+      transition: background var(--transition), border-color var(--transition),
+                  transform .15s, box-shadow var(--transition);
+      user-select: none;
+    }
+    .loc-card:hover {
+      background: var(--surface-hov);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .loc-card.active {
+      background: rgba(240,165,0,.18);
+      border-color: var(--accent);
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+    .loc-card .loc-icon  { font-size: 22px; line-height: 1; margin-bottom: 5px; display: block; }
+    .loc-card .loc-label {
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      letter-spacing: .3px;
+    }
+    .loc-card.active .loc-label { color: var(--accent); }
+
+    /* ════════════════════════════════════════════════════════
+       MINI MAP PANEL
+       ════════════════════════════════════════════════════════ */
+    #map-toggle-btn {
+      position: fixed;
+      bottom: calc(var(--bottom-h) + 12px);
+      right: 16px;
+      z-index: 510;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--glass-brd);
+      background: var(--glass-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+    }
+    #map-toggle-btn:hover {
+      background: var(--surface-hov);
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    #mini-map-panel {
+      position: fixed;
+      bottom: calc(var(--bottom-h) + 60px);
+      right: 16px;
+      z-index: 505;
+      width: 260px;
+      border-radius: var(--radius);
+      border: 1px solid var(--glass-brd);
+      background: var(--glass-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      overflow: hidden;
+      transform: translateX(calc(100% + 20px));
+      opacity: 0;
+      pointer-events: none;
+      transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .35s ease;
+    }
+    #mini-map-panel.open {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .map-header {
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      border-bottom: 1px solid var(--glass-brd);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .map-img-wrapper {
+      position: relative;
+      width: 100%;
+      height: 180px;
+      overflow: hidden;
+      background: #0d0d1a;
+    }
+    .map-img-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      opacity: .85;
+    }
+    #map-location-dot {
+      position: absolute;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #fff;
+      box-shadow: 0 0 8px var(--accent), 0 0 20px var(--accent-glow);
+      transform: translate(-50%, -50%);
+      transition: left .5s ease, top .5s ease;
+      left: 50%; top: 50%;
+      animation: pulse-dot 1.6s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { box-shadow: 0 0 8px var(--accent), 0 0 20px var(--accent-glow); }
+      50%       { box-shadow: 0 0 4px var(--accent), 0 0 40px rgba(240,165,0,.5); }
+    }
+    .map-label {
+      padding: 8px 14px;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    #map-current-loc-label { font-weight: 600; color: var(--accent); }
+
+    /* ════════════════════════════════════════════════════════
+       INFO SIDEBAR
+       ════════════════════════════════════════════════════════ */
+    #info-sidebar {
+      position: fixed;
+      top: var(--nav-h);
+      right: 0;
+      bottom: var(--bottom-h);
+      width: 320px;
+      z-index: 600;
+      background: var(--glass-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-left: 1px solid var(--glass-brd);
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform .35s cubic-bezier(.4,0,.2,1);
+      overflow: hidden;
+    }
+    #info-sidebar.open { transform: translateX(0); }
+    .sidebar-close {
+      position: absolute;
+      top: 12px; right: 14px;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: 1px solid var(--glass-brd);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background var(--transition), color var(--transition);
+      z-index: 2;
+    }
+    .sidebar-close:hover {
+      background: rgba(220,38,38,.25);
+      color: #ff6b6b;
+      border-color: #ff6b6b;
+    }
+    .sidebar-img {
+      width: 100%;
+      height: 170px;
+      object-fit: cover;
+      display: block;
+      background: rgba(255,255,255,.04);
+    }
+    .sidebar-body {
+      padding: 18px 20px;
+      flex: 1;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,.15) transparent;
+    }
+    .sidebar-body::-webkit-scrollbar { width: 4px; }
+    .sidebar-body::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,.15);
+      border-radius: 4px;
+    }
+    .sidebar-location-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .sidebar-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 18px;
+    }
+    .sidebar-learn-more {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 20px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #000;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity var(--transition), transform .15s;
+    }
+    .sidebar-learn-more:hover { opacity: .88; transform: translateY(-1px); }
+
+    /* ════════════════════════════════════════════════════════
+       CHATBOT  (RAG – repositioned above bottom panel)
+       ════════════════════════════════════════════════════════ */
     #chatbot-toggle {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 10000;
-      width: 56px;
-      height: 56px;
+      bottom: calc(var(--bottom-h) + 16px);
+      right: 120px;
+      z-index: 800;
+      width: 48px; height: 48px;
       border-radius: 50%;
       border: none;
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
       color: #fff;
-      font-size: 26px;
+      font-size: 22px;
       cursor: pointer;
-      box-shadow: 0 4px 20px rgba(99, 102, 241, .45);
+      box-shadow: 0 4px 18px rgba(99,102,241,.5);
       transition: transform .2s, box-shadow .2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
     }
-
     #chatbot-toggle:hover {
       transform: scale(1.1);
-      box-shadow: 0 6px 28px rgba(99, 102, 241, .6);
+      box-shadow: 0 6px 26px rgba(99,102,241,.65);
     }
-
     #chatbot-panel {
       position: fixed;
-      bottom: 92px;
-      right: 24px;
-      z-index: 10000;
-      width: 370px;
-      height: 500px;
+      bottom: calc(var(--bottom-h) + 76px);
+      right: 16px;
+      z-index: 800;
+      width: 350px; height: 480px;
       border-radius: 16px;
-      background: rgba(15, 15, 25, .88);
+      background: rgba(10,10,20,.92);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
-      border: 1px solid rgba(255, 255, 255, .1);
-      display: flex;
-      flex-direction: column;
+      border: 1px solid rgba(255,255,255,.1);
+      display: flex; flex-direction: column;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: var(--font);
       opacity: 0;
-      transform: translateY(20px) scale(.95);
+      transform: translateY(16px) scale(.96);
       pointer-events: none;
       transition: opacity .25s ease, transform .25s ease;
     }
-
     #chatbot-panel.open {
       opacity: 1;
       transform: translateY(0) scale(1);
       pointer-events: auto;
     }
-
     #chatbot-header {
-      padding: 16px 20px;
+      padding: 14px 18px;
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
       color: #fff;
       font-weight: 600;
-      font-size: 15px;
+      font-size: 14px;
       letter-spacing: .3px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      display: flex; align-items: center; gap: 8px;
     }
-
-    #chatbot-header span.dot {
-      width: 8px;
-      height: 8px;
+    #chatbot-header .dot {
+      width: 8px; height: 8px;
       border-radius: 50%;
       background: #4ade80;
-      display: inline-block;
-      animation: pulse-dot 2s infinite;
+      animation: pulse-bot-dot 2s infinite;
     }
-
-    @keyframes pulse-dot {
-
-      0%,
-      100% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: .4;
-      }
-    }
-
+    @keyframes pulse-bot-dot { 0%,100%{opacity:1} 50%{opacity:.35} }
     #chatbot-messages {
       flex: 1;
       overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      padding: 14px;
+      display: flex; flex-direction: column; gap: 9px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,.12) transparent;
     }
-
-    #chatbot-messages::-webkit-scrollbar {
-      width: 5px;
-    }
-
-    #chatbot-messages::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
+    #chatbot-messages::-webkit-scrollbar { width: 4px; }
     #chatbot-messages::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, .15);
-      border-radius: 4px;
+      background: rgba(255,255,255,.12); border-radius: 4px;
     }
-
     .chat-msg {
       max-width: 85%;
-      padding: 10px 14px;
-      border-radius: 14px;
-      font-size: 13.5px;
-      line-height: 1.5;
+      padding: 9px 13px;
+      border-radius: 13px;
+      font-size: 13px;
+      line-height: 1.55;
       word-wrap: break-word;
-      animation: msg-in .25s ease;
+      animation: msg-in .2s ease;
     }
-
-    @keyframes msg-in {
-      from {
-        opacity: 0;
-        transform: translateY(8px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
+    @keyframes msg-in { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
     .chat-msg.user {
       align-self: flex-end;
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
       color: #fff;
       border-bottom-right-radius: 4px;
     }
-
     .chat-msg.bot {
       align-self: flex-start;
-      background: rgba(255, 255, 255, .08);
+      background: rgba(255,255,255,.08);
       color: #e2e8f0;
       border-bottom-left-radius: 4px;
     }
-
     .typing-indicator {
       align-self: flex-start;
-      display: flex;
-      gap: 5px;
-      padding: 10px 14px;
+      display: flex; gap: 5px; padding: 9px 13px;
     }
-
     .typing-indicator span {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, .35);
+      width: 7px; height: 7px; border-radius: 50%;
+      background: rgba(255,255,255,.35);
       animation: typing-bounce .6s infinite alternate;
     }
-
-    .typing-indicator span:nth-child(2) {
-      animation-delay: .15s;
-    }
-
-    .typing-indicator span:nth-child(3) {
-      animation-delay: .3s;
-    }
-
-    @keyframes typing-bounce {
-      to {
-        opacity: .2;
-        transform: translateY(-4px);
-      }
-    }
-
+    .typing-indicator span:nth-child(2){ animation-delay:.15s }
+    .typing-indicator span:nth-child(3){ animation-delay:.30s }
+    @keyframes typing-bounce { to{opacity:.2;transform:translateY(-4px)} }
     #chatbot-input-area {
-      display: flex;
-      padding: 12px;
-      gap: 8px;
-      border-top: 1px solid rgba(255, 255, 255, .08);
-      background: rgba(0, 0, 0, .25);
+      display: flex; padding: 10px; gap: 7px;
+      border-top: 1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.25);
     }
-
     #chatbot-input {
-      flex: 1;
-      padding: 10px 14px;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, .12);
-      background: rgba(255, 255, 255, .06);
-      color: #f1f5f9;
-      font-size: 13.5px;
-      font-family: 'Inter', sans-serif;
-      outline: none;
+      flex: 1; padding: 9px 13px;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: #f1f5f9; font-size: 13px;
+      font-family: var(--font); outline: none;
       transition: border-color .2s;
     }
-
-    #chatbot-input::placeholder {
-      color: rgba(255, 255, 255, .35);
-    }
-
-    #chatbot-input:focus {
-      border-color: #8b5cf6;
-    }
-
+    #chatbot-input::placeholder { color: rgba(255,255,255,.35); }
+    #chatbot-input:focus { border-color: #8b5cf6; }
     #chatbot-send {
-      padding: 0 16px;
-      border-radius: 10px;
-      border: none;
+      padding: 0 14px;
+      border-radius: 9px; border: none;
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      color: #fff;
-      font-weight: 600;
-      font-size: 13.5px;
-      cursor: pointer;
+      color: #fff; font-weight: 600; font-size: 13px;
+      font-family: var(--font); cursor: pointer;
       transition: opacity .2s;
     }
+    #chatbot-send:hover { opacity: .85; }
+    #chatbot-send:disabled { opacity: .4; cursor: not-allowed; }
 
-    #chatbot-send:hover {
-      opacity: .85;
+    /* ════════════════════════════════════════════════════════
+       RESPONSIVE
+       ════════════════════════════════════════════════════════ */
+    @media (max-width: 600px) {
+      :root { --nav-h: 48px; --bottom-h: 95px; }
+      .nav-brand-name { display: none; }
+      .nav-title { font-size: 11px; }
+      #info-sidebar {
+        width: 100%; border-left: none;
+        border-top: 1px solid var(--glass-brd);
+        top: auto; bottom: var(--bottom-h);
+        height: 55vh;
+        transform: translateY(100%);
+        border-radius: var(--radius) var(--radius) 0 0;
+      }
+      #info-sidebar.open { transform: translateY(0); }
+      #mini-map-panel { width: 220px; }
+      #chatbot-panel {
+        width: calc(100vw - 24px);
+        right: 12px; left: 12px;
+        height: 52vh;
+      }
     }
-
-    #chatbot-send:disabled {
-      opacity: .4;
-      cursor: not-allowed;
+    @media (orientation: landscape) and (max-height: 500px) {
+      :root { --nav-h: 44px; --bottom-h: 80px; }
+      .loc-card { min-width: 74px; padding: 6px 10px; }
+      .loc-card .loc-icon { font-size: 18px; }
     }
   </style>
 </head>
 
 <body>
-  <div id="unity-container" class="unity-desktop">
-    <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
-    <div id="unity-loading-bar">
-      <div id="unity-logo"></div>
-      <div id="unity-progress-bar-empty">
-        <div id="unity-progress-bar-full"></div>
-      </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       LOADING SCREEN
+       ══════════════════════════════════════════════════════ -->
+  <div id="loading-screen">
+    <div id="loading-bg"></div>
+    <!--
+      Replace src with your official VNR VJIET logo path.
+      The image is displayed as a circular badge above the progress bar.
+    -->
+    <img
+      id="tour-logo"
+      src="TemplateData/unity-logo-dark.png"
+      alt="VNR VJIET Logo"
+      onerror="this.style.display='none'"
+    >
+    <div class="loading-college-name">VNR VJIET</div>
+    <div class="loading-tagline">Welcome to the Virtual Campus Tour</div>
+    <div class="spinner" id="loading-spinner"></div>
+    <div class="progress-track" id="progress-track" style="display:none;">
+      <div class="progress-fill" id="progress-fill"></div>
     </div>
-    <div id="unity-warning"> </div>
-    <div id="unity-footer">
-      <div id="unity-logo-title-footer"></div>
-      <div id="unity-fullscreen-button"></div>
-      <div id="unity-build-title">Archive</div>
+    <div class="progress-text" id="progress-text">
+      <span class="loading-dots">Loading</span>
     </div>
   </div>
 
-  <!-- ── Chatbot UI ── -->
+
+  <!-- ══════════════════════════════════════════════════════
+       TOP NAVIGATION BAR
+       ══════════════════════════════════════════════════════ -->
+  <nav id="top-nav">
+    <div class="nav-brand">
+      <img
+        src="TemplateData/unity-logo-dark.png"
+        alt="VNR VJIET"
+        onerror="this.style.display='none'"
+      >
+      <span class="nav-brand-name">VNR VJIET</span>
+    </div>
+    <div class="nav-title">Virtual Campus Tour</div>
+    <div class="nav-controls">
+      <button class="nav-btn" id="btn-audio"      title="Toggle Audio">🔊</button>
+      <button class="nav-btn" id="btn-fullscreen" title="Fullscreen">⛶</button>
+      <button class="nav-btn" id="btn-info"        title="Info &amp; Help">ℹ️</button>
+    </div>
+  </nav>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       UNITY CANVAS  (fullscreen, behind all overlays)
+       ══════════════════════════════════════════════════════ -->
+  <div id="unity-container">
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="unity-warning"></div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       INFO SIDEBAR  (slides in from the right)
+       ══════════════════════════════════════════════════════ -->
+  <aside id="info-sidebar">
+    <button class="sidebar-close" id="sidebar-close" title="Close">&#215;</button>
+    <!--
+      Location image: dynamically updated by JS.
+      Replace with real location photos as needed.
+    -->
+    <img
+      id="sidebar-img"
+      class="sidebar-img"
+      src="TemplateData/unity-logo-dark.png"
+      alt="Location"
+    >
+    <div class="sidebar-body">
+      <div class="sidebar-location-name" id="sidebar-loc-name">VNR VJIET Campus</div>
+      <p class="sidebar-desc" id="sidebar-loc-desc">
+        Select a location from the bottom panel to explore detailed information
+        about that area of the campus.
+      </p>
+      <a class="sidebar-learn-more" id="sidebar-learn-link" href="#" target="_blank">
+        Learn More ↗
+      </a>
+    </div>
+  </aside>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       MINI MAP  (collapsible, bottom-right)
+       ══════════════════════════════════════════════════════ -->
+  <button id="map-toggle-btn" title="Toggle Campus Map">🗺️ Map</button>
+
+  <div id="mini-map-panel">
+    <div class="map-header">
+      <span>Campus Map</span>
+      <span id="map-current-loc">Entrance</span>
+    </div>
+    <div class="map-img-wrapper">
+      <!--
+        Replace campus-map.png with an actual top-down campus map.
+        The glowing dot (#map-location-dot) is positioned via JS (left/top %).
+      -->
+      <img
+        src="campus-map.png"
+        alt="Campus Map"
+        onerror="this.src=''; this.style.background='#1a1a2e';"
+      >
+      <div id="map-location-dot"></div>
+    </div>
+    <div class="map-label">
+      📍 Currently at: <span id="map-current-loc-label">Entrance</span>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       BOTTOM LOCATION PANEL
+       ══════════════════════════════════════════════════════ -->
+  <div id="bottom-panel">
+    <div class="location-scroll" id="location-scroll">
+      <!-- Cards injected by JS (see LOCATIONS array) -->
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       CHATBOT WIDGET  (Campus RAG Assistant)
+       ══════════════════════════════════════════════════════ -->
   <button id="chatbot-toggle" title="Chat with Campus Assistant">💬</button>
   <div id="chatbot-panel">
     <div id="chatbot-header">
       <span class="dot"></span> Campus Tour Assistant
     </div>
     <div id="chatbot-messages">
-      <div class="chat-msg bot">Hi there! 👋 I'm your campus tour assistant. Ask me anything about the university!</div>
+      <div class="chat-msg bot">
+        Hi there! 👋 I'm your VNR VJIET campus tour assistant.
+        Ask me anything about the university!
+      </div>
     </div>
     <div id="chatbot-input-area">
-      <input id="chatbot-input" type="text" placeholder="Type a message…" autocomplete="off" />
+      <input id="chatbot-input" type="text" placeholder="Ask about the campus…" autocomplete="off">
       <button id="chatbot-send">Send</button>
     </div>
   </div>
 
+
+  <!-- ═══════════════════════════════════════════════════════════
+       JAVASCRIPT — Section 1: Location Data (VNR VJIET)
+       ═══════════════════════════════════════════════════════════ -->
   <script>
-    var canvas = document.querySelector("#unity-canvas");
+  /* ────────────────────────────────────────────────────────
+     LOCATION DATA  — sourced from the campus knowledge base
+     ──────────────────────────────────────────────────────── */
+  /**
+   * Each entry drives:
+   *  • A card in the bottom panel
+   *  • The info sidebar (name, description, image, learn-more link)
+   *  • Unity SendMessage payload ('unityId')
+   *  • Mini-map dot position (x / y as % of the map image)
+   *
+   * To add a new location:
+   *   1. Add an entry here.
+   *   2. Optionally wire up GoToLocation inside Unity's TourManager.
+   */
+  const LOCATIONS = [
+    {
+      id: 'entrance', unityId: 'MainEntrance',
+      icon: '🏛️', label: 'Entrance',
+      name: 'Main Entrance',
+      desc: 'The grand entrance of VNR VJIET on Nizampet Road, Bachupally. Starting point of the campus tour — features the college arch and Ganesh Statue.',
+      img: 'TemplateData/unity-logo-dark.png',
+      link: 'https://vnrvjiet.ac.in',
+      mapX: 50, mapY: 90,
+    },
+    {
+      id: 'a-block', unityId: 'ABlock',
+      icon: '🏗️', label: 'A Block',
+      name: 'A Block',
+      desc: 'Houses the Principal office, administration wing, and the main conference halls. Central hub for institutional governance.',
+      img: 'TemplateData/unity-logo-dark.png',
+      link: 'https://vnrvjiet.ac.in',
+      mapX: 48, mapY: 60,
+    },
+    {
+      id: 'b-block', unityId: 'BBlock',
+      icon: '💻', label: 'B Block',
+      name: 'B Block – IT Department',
+      desc: 'Home to the Information Technology department (1st floor). HOD: Dr. N. Mangathayaru. Navigate: Entrance → Circle → Ganesh Statue → C Block → B Block.',
+      img: 'TemplateData/unity-logo-dark.png',
+      link: 'https://vnrvjiet.ac.in/it',
+      mapX: 60, mapY: 45,
+    },
+    {
+      id: 'c-block', unityId: 'CBlock',
+      icon: '🔬', label: 'C Block',
+      name: 'C Block',
+      desc: 'C Block contains faculty cabins, seminar halls, and department labs. Key waypoint on the route from the entrance to B and E Blocks.',
+      img: 'TemplateData/unity-logo-dark.png',
+      link: 'https://vnrvjiet.ac.in',
+      mapX: 52, mapY: 50,
+    },
+    {
+      id: 'e-block', unityId: 'EBlock',
+      icon: '🤖', label: 'E Block',
+      name: 'E Block – CSE / AI / ML',
+      desc: 'Hosts: CSE (1F, HOD: Dr. V. Baby), CSBS (1F), AIML (2F, HOD: Dr. Sagar Yeruva), IoT (2F), Data Science (4F), Cyber Security (5F). Opposite B Block.',
+      img: 'TemplateData/unity-logo-dark.png',
+      link: 'https://vnrvjiet.ac.in/cse',
+      mapX: 65, mapY: 40,
+    },
+    {
+      id: 'library', unityId: 'Library',
+      icon: '📚', label: 'Library',
+      name: 'Central Library',
+      desc: 'Open 8 AM – 8 PM on all working days. Houses thousands of technical books, digital resources, e-journals, and reading rooms.',
+      img: 'TemplateData/unity-logo-dark.png',
+      link: 'https://vnrvjiet.ac.in/library',
+      mapX: 40, mapY: 35,
+    },
+    {
+      id: 'auditorium', unityId: 'Auditorium',
+      icon: '🎭', label: 'Auditorium',
+      name: 'Auditorium',
+      desc: 'State-of-the-art auditorium used for convocations, seminars, cultural events, and guest lectures.',
+      img: 'TemplateData/unity-logo-dark.png',
+      link: 'https://vnrvjiet.ac.in',
+      mapX: 35, mapY: 30,
+    },
+    {
+      id: 'cafeteria', unityId: 'Cafeteria',
+      icon: '🍽️', label: 'Cafeteria',
+      name: 'Cafeteria',
+      desc: 'Serves affordable, nutritious meals throughout college hours. Multiple cuisine counters and comfortable seating for students and staff.',
+      img: 'TemplateData/unity-logo-dark.png',
+      link: 'https://vnrvjiet.ac.in',
+      mapX: 30, mapY: 55,
+    },
+    {
+      id: 'sports', unityId: 'SportsComplex',
+      icon: '⚽', label: 'Sports',
+      name: 'Sports Complex',
+      desc: 'Facilities include cricket ground, basketball courts, volleyball courts, indoor badminton, table tennis, and a fully-equipped fitness gym.',
+      img: 'TemplateData/unity-logo-dark.png',
+      link: 'https://vnrvjiet.ac.in',
+      mapX: 20, mapY: 70,
+    },
+    {
+      id: 'admin', unityId: 'AdminBlock',
+      icon: '🏢', label: 'Admin',
+      name: 'Administrative Block',
+      desc: 'Handles admissions, fee payments, certificates, and official college functions. Office hours: 9:30 AM – 5:00 PM, Mon–Fri.',
+      img: 'TemplateData/unity-logo-dark.png',
+      link: 'https://vnrvjiet.ac.in',
+      mapX: 45, mapY: 65,
+    },
+  ];
+  </script>
 
-    // Shows a temporary message banner/ribbon for a few seconds, or
-    // a permanent error message on top of the canvas if type=='error'.
-    // If type=='warning', a yellow highlight color is used.
-    // Modify or remove this function to customize the visually presented
-    // way that non-critical warnings and error messages are presented to the
-    // user.
-    function unityShowBanner(msg, type) {
-      var warningBanner = document.querySelector("#unity-warning");
-      function updateBannerVisibility() {
-        warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
-      }
-      var div = document.createElement('div');
-      div.innerHTML = msg;
-      warningBanner.appendChild(div);
-      if (type == 'error') div.style = 'background: red; padding: 10px;';
-      else {
-        if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
-        setTimeout(function () {
-          warningBanner.removeChild(div);
-          updateBannerVisibility();
-        }, 5000);
-      }
-      updateBannerVisibility();
-    }
 
-    var buildUrl = "Build";
-    var loaderUrl = buildUrl + "/Virtual tour.loader.js";
-    var config = {
-      arguments: [],
-      dataUrl: buildUrl + "/Virtual tour.data",
-      frameworkUrl: buildUrl + "/Virtual tour.framework.js",
-      codeUrl: buildUrl + "/Virtual tour.wasm",
-      streamingAssetsUrl: "StreamingAssets",
-      companyName: "DefaultCompany",
-      productName: "Archive",
-      productVersion: "1.0",
-      showBanner: unityShowBanner,
-    };
+  <!-- ═══════════════════════════════════════════════════════════
+       JAVASCRIPT — Section 2: Unity Loader
+       ═══════════════════════════════════════════════════════════ -->
+  <script>
+  /* ────────────────────────────────────────────────────────
+     UNITY LOADER
+     Preserves exact build file names from the deployed build.
+     ──────────────────────────────────────────────────────── */
 
-    // By default, Unity keeps WebGL canvas render target size matched with
-    // the DOM size of the canvas element (scaled by window.devicePixelRatio)
-    // Set this to false if you want to decouple this synchronization from
-    // happening inside the engine, and you would instead like to size up
-    // the canvas DOM size and WebGL render target sizes yourself.
-    // config.matchWebGLToCanvasSize = false;
+  /** Global reference — available after Unity finishes loading */
+  var unityInstance = null;
 
-    // If you would like all file writes inside Unity Application.persistentDataPath
-    // directory to automatically persist so that the contents are remembered when
-    // the user revisits the site the next time, uncomment the following line:
-    // config.autoSyncPersistentDataPath = true;
-    // This autosyncing is currently not the default behavior to avoid regressing
-    // existing user projects that might rely on the earlier manual
-    // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
-    // expected to change.
+  var canvas = document.getElementById('unity-canvas');
 
-    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-      // Mobile device style: fill the whole browser client area with the game canvas:
-
-      var meta = document.createElement('meta');
-      meta.name = 'viewport';
-      meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-      document.getElementsByTagName('head')[0].appendChild(meta);
-      document.querySelector("#unity-container").className = "unity-mobile";
-      canvas.className = "unity-mobile";
-
-      // To lower canvas resolution on mobile devices to gain some
-      // performance, uncomment the following line:
-      // config.devicePixelRatio = 1;
-
-
+  /**
+   * Unity's banner callback — shows temporary warning / permanent error.
+   * Matches the pattern expected by Unity WebGL template.
+   */
+  function unityShowBanner(msg, type) {
+    var wb = document.getElementById('unity-warning');
+    function upd() { wb.style.display = wb.children.length ? 'block' : 'none'; }
+    var div = document.createElement('div');
+    div.innerHTML = msg;
+    wb.appendChild(div);
+    if (type === 'error') {
+      div.style.cssText = 'background:rgba(220,38,38,.9);padding:8px 14px;border-radius:6px;margin:4px 0;';
     } else {
-      // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
-      canvas.style.width = "960px";
-      canvas.style.height = "600px";
+      if (type === 'warning') {
+        div.style.cssText = 'background:rgba(234,179,8,.9);color:#000;padding:8px 14px;border-radius:6px;margin:4px 0;';
+      }
+      setTimeout(function () { wb.removeChild(div); upd(); }, 5000);
+    }
+    upd();
+  }
+
+  /* ── Build configuration ── exact file names from deployed build ── */
+  var buildUrl  = 'Build';
+  var loaderUrl = buildUrl + '/Virtual tour.loader.js';
+
+  var config = {
+    arguments:          [],
+    dataUrl:            buildUrl + '/Virtual tour.data',
+    frameworkUrl:       buildUrl + '/Virtual tour.framework.js',
+    codeUrl:            buildUrl + '/Virtual tour.wasm',
+    streamingAssetsUrl: 'StreamingAssets',
+    companyName:        'DefaultCompany',
+    productName:        'Archive',
+    productVersion:     '1.0',
+    showBanner:         unityShowBanner,
+  };
+
+  /* Mobile viewport fix */
+  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    var mv = document.createElement('meta');
+    mv.name    = 'viewport';
+    mv.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+    document.head.appendChild(mv);
+  }
+
+  /* Inject the Unity loader script dynamically */
+  var loaderScript    = document.createElement('script');
+  loaderScript.src    = loaderUrl;
+  loaderScript.onload = function () {
+    createUnityInstance(canvas, config, onUnityProgress)
+      .then(function (inst) {
+        unityInstance = inst;
+        onUnityLoaded();
+      })
+      .catch(function (msg) {
+        onUnityLoadError(msg);
+      });
+  };
+  loaderScript.onerror = function () {
+    /* Build folder absent — hide loading gracefully (preview / dev mode) */
+    console.warn('[VirtualTour] Unity loader not found — running without Build folder.');
+    onUnityLoaded();
+  };
+  document.body.appendChild(loaderScript);
+
+  /**
+   * Called each frame while Unity loads (progress: 0.0 → 1.0).
+   * Switches from spinner to progress bar on first tick.
+   */
+  function onUnityProgress(progress) {
+    var pct = Math.round(progress * 100);
+    if (pct > 0) {
+      document.getElementById('loading-spinner').style.display = 'none';
+      document.getElementById('progress-track').style.display  = 'block';
+    }
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-text').textContent  = 'Loading… ' + pct + '%';
+  }
+
+  /** Fade out and then remove the loading screen */
+  function onUnityLoaded() {
+    var ls = document.getElementById('loading-screen');
+    ls.classList.add('fade-out');
+    setTimeout(function () { ls.style.display = 'none'; }, 680);
+  }
+
+  /** Show an error inside the loading screen */
+  function onUnityLoadError(msg) {
+    document.getElementById('loading-spinner').style.display = 'none';
+    document.getElementById('progress-text').innerHTML =
+      '<span style="color:#f87171">⚠️ Failed to load Unity build. Check the Build/ folder.</span>';
+    console.error('[VirtualTour] Unity load error:', msg);
+  }
+  </script>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       JAVASCRIPT — Section 3: UI Controls  (nav, map, sidebar, cards)
+       ═══════════════════════════════════════════════════════════ -->
+  <script>
+  /* ─── Build Location Cards ─────────────────────────────── */
+  (function buildCards() {
+    var container = document.getElementById('location-scroll');
+    LOCATIONS.forEach(function (loc) {
+      var card          = document.createElement('div');
+      card.className    = 'loc-card';
+      card.dataset.id   = loc.id;
+      card.innerHTML    =
+        '<span class="loc-icon">'  + loc.icon  + '</span>' +
+        '<span class="loc-label">' + loc.label + '</span>';
+      card.addEventListener('click', function () {
+        activateLocation(loc.id, true); // true → SendMessage to Unity
+      });
+      container.appendChild(card);
+    });
+  })();
+
+  /* Track currently active location */
+  var activeLocationId = null;
+
+  /**
+   * Activate a tour location:
+   *  1. Highlight card
+   *  2. Populate & open info sidebar
+   *  3. Move mini-map dot
+   *  4. Optionally SendMessage to Unity
+   *
+   * @param {string}  id       - LOCATIONS[].id
+   * @param {boolean} toUnity  - whether to call unityInstance.SendMessage
+   */
+  function activateLocation(id, toUnity) {
+    var loc = LOCATIONS.find(function (l) { return l.id === id; });
+    if (!loc) return;
+    activeLocationId = id;
+
+    /* 1. Card highlight */
+    document.querySelectorAll('.loc-card').forEach(function (c) {
+      c.classList.toggle('active', c.dataset.id === id);
+    });
+
+    /* 2. Info sidebar */
+    document.getElementById('sidebar-loc-name').textContent  = loc.name;
+    document.getElementById('sidebar-loc-desc').textContent  = loc.desc;
+    document.getElementById('sidebar-img').src               = loc.img;
+    document.getElementById('sidebar-learn-link').href       = loc.link;
+    openInfoSidebar();
+
+    /* 3. Map dot */
+    updateMapDot(loc.mapX, loc.mapY, loc.name);
+
+    /* 4. Unity */
+    if (toUnity && unityInstance) {
+      try {
+        unityInstance.SendMessage('TourManager', 'GoToLocation', loc.unityId);
+      } catch (e) {
+        console.warn('[VirtualTour] SendMessage failed:', e);
+      }
+    }
+  }
+
+  /* ─── Info Sidebar ─────────────────────────────────────── */
+  function openInfoSidebar()  { document.getElementById('info-sidebar').classList.add('open');    }
+  function closeInfoSidebar() { document.getElementById('info-sidebar').classList.remove('open'); }
+
+  document.getElementById('sidebar-close').addEventListener('click', closeInfoSidebar);
+
+  document.getElementById('btn-info').addEventListener('click', function () {
+    if (activeLocationId) {
+      openInfoSidebar();
+    } else {
+      document.getElementById('sidebar-loc-name').textContent =
+        'About VNR VJIET';
+      document.getElementById('sidebar-loc-desc').textContent =
+        'Vallurupalli Nageswara Rao Vignana Jyothi Institute of Engineering and Technology, ' +
+        'established in 1995, Bachupally, Hyderabad. NAAC A+ accredited, ' +
+        'affiliated to JNTUH. 5,000+ students, smart classrooms, state-of-the-art labs, ' +
+        'central library (8 AM–8 PM), sports complex, and hostel facilities.';
+      document.getElementById('sidebar-learn-link').href = 'https://vnrvjiet.ac.in';
+      openInfoSidebar();
+    }
+    this.classList.toggle('active');
+  });
+
+  /* ─── Mini Map ─────────────────────────────────────────── */
+  var mapOpen = false;
+  document.getElementById('map-toggle-btn').addEventListener('click', function () {
+    mapOpen = !mapOpen;
+    document.getElementById('mini-map-panel').classList.toggle('open', mapOpen);
+  });
+
+  /**
+   * Reposition the glowing dot on the mini map.
+   * @param {number} x    - left position (0–100 %)
+   * @param {number} y    - top  position (0–100 %)
+   * @param {string} name - human-readable place name
+   */
+  function updateMapDot(x, y, name) {
+    document.getElementById('map-location-dot').style.left = x + '%';
+    document.getElementById('map-location-dot').style.top  = y + '%';
+    document.getElementById('map-current-loc').textContent       = name;
+    document.getElementById('map-current-loc-label').textContent = name;
+  }
+
+  /* ─── Top Nav: Audio Toggle ────────────────────────────── */
+  var audioMuted = false;
+  document.getElementById('btn-audio').addEventListener('click', function () {
+    audioMuted = !audioMuted;
+    this.textContent = audioMuted ? '🔇' : '🔊';
+    this.classList.toggle('active', audioMuted);
+    this.title = audioMuted ? 'Unmute Audio' : 'Mute Audio';
+    if (unityInstance) {
+      try { unityInstance.SendMessage('AudioManager', 'SetMute', audioMuted ? '1' : '0'); }
+      catch (e) { console.warn('[VirtualTour] Audio SendMessage failed:', e); }
+    }
+  });
+
+  /* ─── Top Nav: Fullscreen Toggle ───────────────────────── */
+  document.getElementById('btn-fullscreen').addEventListener('click', function () {
+    var container = document.getElementById('unity-container');
+    if (!document.fullscreenElement) {
+      (container.requestFullscreen
+        || container.webkitRequestFullscreen
+        || container.mozRequestFullScreen
+        || container.msRequestFullscreen).call(container);
+      if (unityInstance) {
+        try { unityInstance.SetFullscreen(1); } catch (e) {}
+      }
+    } else {
+      (document.exitFullscreen
+        || document.webkitExitFullscreen
+        || document.mozCancelFullScreen
+        || document.msExitFullscreen).call(document);
+    }
+  });
+
+  /* Sync button state with OS fullscreen events */
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {
+    document.addEventListener(ev, function () {
+      var btn  = document.getElementById('btn-fullscreen');
+      var isFs = !!document.fullscreenElement;
+      btn.classList.toggle('active', isFs);
+      btn.title = isFs ? 'Exit Fullscreen' : 'Fullscreen';
+    });
+  });
+
+  /* ─── Global Callback: Unity → JS ─────────────────────── */
+  /**
+   * Unity calls this via a .jslib plugin when the in-scene camera arrives
+   * at a new location.  Updates the active card, map dot, and sidebar
+   * WITHOUT triggering another SendMessage back to Unity.
+   *
+   * Unity jslib usage:
+   *   mergeInto(LibraryManager.library, {
+   *     OnLocationChanged: function(ptr) {
+   *       window.onUnityLocationChanged(UTF8ToString(ptr));
+   *     }
+   *   });
+   *
+   * @param {string} unityId  - e.g. "Library", "EBlock"
+   */
+  window.onUnityLocationChanged = function (unityId) {
+    var loc = LOCATIONS.find(function (l) { return l.unityId === unityId; });
+    if (!loc) {
+      console.warn('[VirtualTour] onUnityLocationChanged: unknown id "' + unityId + '"');
+      return;
+    }
+    activateLocation(loc.id, false); // false → don't echo back to Unity
+  };
+  </script>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       JAVASCRIPT — Section 4: RAG Chatbot (backend at :3000)
+       ═══════════════════════════════════════════════════════════ -->
+  <script>
+  (function () {
+    /* ── Backend URL — change port if your server uses a different one ── */
+    var BACKEND_URL = 'http://localhost:3000/chat';
+
+    var toggleBtn  = document.getElementById('chatbot-toggle');
+    var panel      = document.getElementById('chatbot-panel');
+    var messages   = document.getElementById('chatbot-messages');
+    var input      = document.getElementById('chatbot-input');
+    var sendBtn    = document.getElementById('chatbot-send');
+
+    toggleBtn.addEventListener('click', function () {
+      panel.classList.toggle('open');
+      if (panel.classList.contains('open')) input.focus();
+    });
+
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    function appendMessage(text, sender) {
+      var div        = document.createElement('div');
+      div.className  = 'chat-msg ' + sender;
+      div.textContent = text;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
     }
 
-    document.querySelector("#unity-loading-bar").style.display = "block";
+    function showTyping() {
+      if (document.getElementById('typing')) return;
+      var el       = document.createElement('div');
+      el.className = 'typing-indicator';
+      el.id        = 'typing';
+      el.innerHTML = '<span></span><span></span><span></span>';
+      messages.appendChild(el);
+      messages.scrollTop = messages.scrollHeight;
+    }
 
-    var script = document.createElement("script");
-    script.src = loaderUrl;
-    script.onload = () => {
-      createUnityInstance(canvas, config, (progress) => {
-        document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
-      }).then((unityInstance) => {
-        document.querySelector("#unity-loading-bar").style.display = "none";
-        document.querySelector("#unity-fullscreen-button").onclick = () => {
-          unityInstance.SetFullscreen(1);
-        };
+    function hideTyping() {
+      var el = document.getElementById('typing');
+      if (el) el.remove();
+    }
 
-      }).catch((message) => {
-        alert(message);
-      });
-    };
+    async function sendMessage() {
+      var text = input.value.trim();
+      if (!text) return;
 
-    document.body.appendChild(script);
-  </script>
+      appendMessage(text, 'user');
+      input.value      = '';
+      sendBtn.disabled = true;
+      showTyping();
 
-  <!-- ── Chatbot Logic ── -->
-  <script>
-    (function () {
-      const BACKEND_URL = "http://localhost:3000/chat";
+      try {
+        var res  = await fetch(BACKEND_URL, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ message: text }),
+        });
+        var data = await res.json();
+        hideTyping();
 
-      const toggleBtn = document.getElementById("chatbot-toggle");
-      const panel = document.getElementById("chatbot-panel");
-      const messages = document.getElementById("chatbot-messages");
-      const input = document.getElementById("chatbot-input");
-      const sendBtn = document.getElementById("chatbot-send");
-
-      // Toggle panel open / close
-      toggleBtn.addEventListener("click", () => {
-        panel.classList.toggle("open");
-        if (panel.classList.contains("open")) input.focus();
-      });
-
-      // Send message on button click or Enter key
-      sendBtn.addEventListener("click", sendMessage);
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") sendMessage();
-      });
-
-      function appendMessage(text, sender) {
-        const div = document.createElement("div");
-        div.className = "chat-msg " + sender;
-        div.textContent = text;
-        messages.appendChild(div);
-        messages.scrollTop = messages.scrollHeight;
-      }
-
-      function showTyping() {
-        const el = document.createElement("div");
-        el.className = "typing-indicator";
-        el.id = "typing";
-        el.innerHTML = "<span></span><span></span><span></span>";
-        messages.appendChild(el);
-        messages.scrollTop = messages.scrollHeight;
-      }
-
-      function hideTyping() {
-        const el = document.getElementById("typing");
-        if (el) el.remove();
-      }
-
-      async function sendMessage() {
-        const text = input.value.trim();
-        if (!text) return;
-
-        appendMessage(text, "user");
-        input.value = "";
-        sendBtn.disabled = true;
-        showTyping();
-
-        try {
-          const res = await fetch(BACKEND_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: text }),
-          });
-
-          const data = await res.json();
-          hideTyping();
-
-          if (res.ok && data.reply) {
-            appendMessage(data.reply, "bot");
-          } else {
-            appendMessage("⚠️ " + (data.error || "Something went wrong."), "bot");
-          }
-        } catch (err) {
-          hideTyping();
-          appendMessage("⚠️ Could not reach the server. Is the backend running?", "bot");
+        if (res.ok && data.reply) {
+          appendMessage(data.reply, 'bot');
+        } else {
+          appendMessage('⚠️ ' + (data.error || 'Something went wrong.'), 'bot');
         }
-
-        sendBtn.disabled = false;
-        input.focus();
+      } catch (err) {
+        hideTyping();
+        appendMessage('⚠️ Could not reach the server. Is the backend running?', 'bot');
       }
-    })();
-  </script>
-</body>
 
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  })();
+  </script>
+
+</body>
 </html>
